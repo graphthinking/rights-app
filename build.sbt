@@ -16,3 +16,7 @@ libraryDependencies += "commons-io" % "commons-io" % "2.4"
 javaOptions in Test += "-Dconfig.file=conf/test.conf"
 
 scalaVersion := "2.11.11"
+
+enablePlugins(JavaAppPackaging,DockerPlugin)
+dockerExposedPorts := Seq(9000)
+dockerBaseImage := "openjdk:8-jdk"

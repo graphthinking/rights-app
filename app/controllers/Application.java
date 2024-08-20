@@ -64,11 +64,13 @@ public class Application extends Controller {
   }
 
   public Result getVocab(String version) {
-
+    Logger.info("Getting vocab for version: "+version);
     if (request().accepts("text/html")) {
       Locale locale = getLocale(request(), null);
+      Logger.info(locale.getLanguage());
       return redirect(routes.Application.getVocabPage(version, locale.getLanguage()).url());
     } else {
+      Logger.info(routes.Application.getVocabData(version, null).url());
       return redirect(routes.Application.getVocabData(version, null).url());
     }
 
