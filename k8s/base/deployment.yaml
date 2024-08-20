@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rights-statements-deployment
+spec:
+  # selector.matchLabels is provided via Kustomize
+  template:
+    spec:
+      containers:
+        - name: rights-statements
+          image: europeana/rights-statements
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              port: 8080
+              path: /actuator/health/liveness
+              httpHeaders:
+                - name: Accept
+                  value: application/json
+            initialDelaySeconds: 90
+            periodSeconds: 60
+          readinessProbe:
+            httpGet:
+              port: 8080
+              path: /actuator/health/readiness
+              httpHeaders:
+                - name: Accept
+                  value: application/json
+            initialDelaySeconds: 60
+            periodSeconds: 60

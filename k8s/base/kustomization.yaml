@@ -1,0 +1,8 @@
+resources:
+  - deployment.yaml
+
+labels:
+  - includeSelectors: true
+    pairs:
+      app: rights-statements
+
