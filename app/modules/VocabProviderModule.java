@@ -1,8 +1,8 @@
 package modules;
 
 import com.google.inject.AbstractModule;
-import play.Configuration;
-import play.Environment;
+import play.api.Configuration;
+import play.api.Environment;
 import services.VocabProvider;
 
 /**
@@ -21,7 +21,7 @@ public class VocabProviderModule extends AbstractModule {
 
   protected void configure() {
 
-    String vocabVersion = configuration.getString("vocab.provider");
+    String vocabVersion = configuration.underlying().getString("vocab.provider");
     try {
       Class<? extends VocabProvider> bindingClass = environment.classLoader().loadClass(vocabVersion)
           .asSubclass(VocabProvider.class);

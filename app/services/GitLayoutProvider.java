@@ -7,7 +7,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.jena.atlas.RuntimeIOException;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
-import play.Configuration;
+import play.api.Configuration;
 import play.Logger;
 
 import java.io.File;
@@ -34,7 +34,7 @@ public class GitLayoutProvider implements LayoutProvider {
 
     protected URL getResource(final String location) throws IOException {
 
-      File localPath = new File(gitSource.getString("local"), location.substring(1));
+      File localPath = new File(gitSource.underlying().getString("local"), location.substring(1));
       Logger.debug("Fetching " + localPath.toURI().toURL());
       return localPath.toURI().toURL();
 
@@ -45,14 +45,14 @@ public class GitLayoutProvider implements LayoutProvider {
   @Inject
   public GitLayoutProvider(Configuration configuration) {
 
-    gitSource = configuration.getConfig("source.site.git");
+    gitSource = (Configuration) configuration.underlying().getConfig("source.site.git");
 
     try {
-      Logger.debug("Checking out template branch ".concat(gitSource.getString("branch")));
-      File localPath = new File(gitSource.getString("local"));
+      Logger.debug("Checking out template branch ".concat(gitSource.underlying().getString("branch")));
+      File localPath = new File(gitSource.underlying().getString("local"));
       FileUtils.deleteDirectory(localPath);
-      try (Git git = Git.cloneRepository().setURI(gitSource.getString("remote")).setDirectory(localPath).call()) {
-        git.checkout().setName(gitSource.getString("branch")).call();
+      try (Git git = Git.cloneRepository().setURI(gitSource.underlying().getString("remote")).setDirectory(localPath).call()) {
+        git.checkout().setName(gitSource.underlying().getString("branch")).call();
         git.getRepository().close();
       }
     } catch (IOException | GitAPIException e) {
