@@ -22,3 +22,4 @@ scalaVersion := "2.13.14"
 enablePlugins(JavaAppPackaging,DockerPlugin)
 dockerExposedPorts := Seq(9000)
 dockerBaseImage := "openjdk:11-jdk"
+dockerRepository := Option("docker.io/europeana")
