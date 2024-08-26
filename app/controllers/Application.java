@@ -484,4 +484,10 @@ private static Map<String, ConfigValue> getMap(Set<Entry<String, ConfigValue>> i
       .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
 }
+
+
+
+  public Result index() {
+    return ok(views.html.index.render());
+  }
 }
