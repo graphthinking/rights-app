@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: rights-statements-deployment
+  name: rights-app-deployment
 spec:
   replicas: ${MIN_REPLICAS}
   template:
@@ -11,7 +11,7 @@ spec:
         fluentd/multiline: 'true'
     spec:
       containers:
-        - name: rights-statements
+        - name: rights-app
           imagePullPolicy: Always
           resources:
             requests:

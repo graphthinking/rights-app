@@ -4,5 +4,5 @@ resources:
 labels:
   - includeSelectors: true
     pairs:
-      app: rights-statements
+      app: rights-app
 

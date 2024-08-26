@@ -1,14 +1,14 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: rights-statements-deployment
+  name: rights-app-deployment
 spec:
   # selector.matchLabels is provided via Kustomize
   template:
     spec:
       containers:
-        - name: rights-statements
-          image: europeana/rights-statements
+        - name: rights-app
+          image: europeana/rights-app
           ports:
             - containerPort: 8080
           livenessProbe:

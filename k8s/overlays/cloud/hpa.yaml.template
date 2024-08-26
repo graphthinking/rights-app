@@ -1,14 +1,14 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: rights-statements-hpa
+  name: rights-app-hpa
 spec:
   maxReplicas: ${MAX_REPLICAS}
   minReplicas: ${MIN_REPLICAS}
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: rights-statements-deployment
+    name: rights-app-deployment
   behavior:
     scaleDown:
       stabilizationWindowSeconds: 600

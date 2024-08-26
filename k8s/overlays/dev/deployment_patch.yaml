@@ -1,11 +1,11 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: rights-statements-deployment
+  name: rights-app-deployment
 spec:
   template:
     spec:
       containers:
-        - name: rights-statements
+        - name: rights-app
           # required to use local image
           imagePullPolicy: Never
