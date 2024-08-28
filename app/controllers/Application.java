@@ -10,15 +10,18 @@ import com.hp.hpl.jena.query.QueryFactory;
 import com.hp.hpl.jena.rdf.model.Model;
 import com.hp.hpl.jena.rdf.model.ModelFactory;
 
+import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigValue;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.stream.Collectors;
+
 import org.apache.commons.lang3.StringEscapeUtils;
 import play.api.Configuration;
 import play.Logger;
 import play.api.Environment;
+import play.api.http.MediaRange;
 import play.mvc.Controller;
 import play.mvc.Http;
 import play.mvc.Http.Request;
@@ -43,17 +46,17 @@ import java.util.ArrayList;
  */
 public class Application extends Controller {
 
-  private static Map<String, ConfigValue> mimeTypeParserMap = getMap(ConfigFactory.load().getConfig("parser").entrySet());
+  private static Map<String, Object> mimeTypeParserMap = generateValueMap(ConfigFactory.load().getConfig("parser"));
 
-  private static Map<String, ConfigValue> mimeTypeExtMap =  getMap(ConfigFactory.load().getConfig("extension").entrySet());
+  private static Map<String, Object> mimeTypeExtMap =  generateValueMap(ConfigFactory.load().getConfig("extension"));
 
-  private static Map<String, ConfigValue> defaults =getMap( ConfigFactory.load().getConfig("default").entrySet());
+  private static Map<String, Object> defaults =generateValueMap( ConfigFactory.load().getConfig("default"));
 
-  private static Map<String, ConfigValue> validParameters = getMap(ConfigFactory.load().getConfig("params").entrySet());
+  private static Map<String, Object> validParameters = generateValueMap(ConfigFactory.load().getConfig("params"));
 
-  private static Map<String, ConfigValue> sparqlQueries = getMap(ConfigFactory.load().getConfig("queries").entrySet());
+  private static Map<String, Object> sparqlQueries = generateValueMap(ConfigFactory.load().getConfig("queries"));
 
-  private static Map<String, ConfigValue> languages = getMap(ConfigFactory.load().getConfig("languages").entrySet());
+  private static Map<String, Object> languages = generateValueMap(ConfigFactory.load().getConfig("languages"));
 
   private final VocabProvider vocabProvider;
 
@@ -113,12 +116,11 @@ public class Application extends Controller {
       return notFoundPage(request);
     }
 
-//    response().setHeader("Link", "<".concat(routes.Application.getVocabPage(version, null)
-//        .url()).concat(">; rel=derivedfrom"));
-//    response().setHeader("Content-Language", locale.getLanguage());
+    String linkValue = "<".concat(routes.Application.getVocabPage(version, null).url()).concat(">; rel=derivedfrom");
 
-    return getPage(vocab, "/".concat(locale.toLanguageTag()).concat("/statements/vocab.html"), locale.getLanguage(), null,request);
 
+    return getPage(vocab, "/".concat(locale.toLanguageTag()).concat("/statements/vocab.html"), locale.getLanguage(), null,request)
+        .withHeaders("Content-Language", locale.getLanguage(),"Link",linkValue);
   }
 
   public Result getStatement(String id, String version,Http.Request req) {
@@ -148,15 +150,14 @@ public class Application extends Controller {
       return notFoundPage(req);
     }
 
-    //MimeType mimeType = getMimeType(req, extension);
-    String mimeType ="application/json";
-//    response().setHeader("Content-Location", routes.Application.getStatementData(id, version,
-//        mimeTypeExtMap.getOrDefault(mimeType.toString(), defaults.get("mime").toString()).toString())
-//        .url());
-//    response().setHeader("Link", "<".concat(routes.Application.getStatementData(id, version, null)
-//        .url()).concat(">; rel=derivedfrom"));
+    String  mimeType = getMimeType(req, extension);
+    String location = routes.Application.getStatementData(id, version,
+            mimeTypeExtMap.getOrDefault(mimeType.toString(), defaults.get("mime").toString())
+                .toString()).url();
+    String link = "<".concat(routes.Application.getStatementData(id, version, null)
+        .url()).concat(">; rel=derivedfrom");
 
-    return getData(rightsStatement, mimeType);
+    return getData(rightsStatement, mimeType).withHeaders("Content-Location", location,"Link", link);
 
   }
 
@@ -168,13 +169,9 @@ public class Application extends Controller {
     if (rightsStatement.isEmpty()) {
       return notFoundPage(req);
     }
-
-//    response().setHeader("Link", "<".concat(routes.Application.getStatementPage(id, version, null)
-//        .url()).concat(">; rel=derivedfrom"));
-//    response().setHeader("Content-Language", locale.getLanguage());
-
-    return getPage(rightsStatement, "/en/statement.hbs", locale.getLanguage(), getParameters(req, id),req);
-
+    return getPage(rightsStatement, "/en/statement.hbs", locale.getLanguage(),
+        getParameters(req, id), req).withHeaders("Content-Language", locale.getLanguage(),"Link", "<".concat(routes.Application.getStatementPage(id, version, null)
+        .url()).concat(">; rel=derivedfrom"));
   }
 
   public Result getCollection(String id, String version,Http.Request req) {
@@ -196,16 +193,13 @@ public class Application extends Controller {
       return notFoundPage(req);
     }
 
-   // MimeType mimeType = getMimeType(req, extension);
+    String mimeType = getMimeType(req, extension);
 
-    String mimeType ="application/json";
-//    response().setHeader("Content-Location", routes.Application.getCollectionData(id, version,
-//        mimeTypeExtMap.getOrDefault(mimeType.toString(), defaults.get("mime").toString()).toString())
-//        .url());
-//    response().setHeader("Link", "<".concat(routes.Application.getCollectionData(id, version, null)
-//        .url()).concat(">; rel=derivedfrom"));
-
-    return getData(collection, mimeType);
+    String mime = routes.Application.getCollectionData(id, version,
+            mimeTypeExtMap.getOrDefault(mimeType.toString(), defaults.get("mime").toString()).toString()).url();
+    String link = "<".concat(routes.Application.getCollectionData(id, version, null)
+        .url()).concat(">; rel=derivedfrom");
+    return getData(collection, mimeType).withHeaders("Content-Location", mime,"Link", link);
 
   }
 
@@ -217,13 +211,11 @@ public class Application extends Controller {
     if (collection.isEmpty()) {
       return notFoundPage(req);
     }
-
-//    response().setHeader("Link", "<".concat(routes.Application.getCollectionPage(id, version, null)
-//        .url()).concat(">; rel=derivedfrom"));
-//    response().setHeader("Content-Language", locale.getLanguage());
-
-    return getPage(collection, locale.toLanguageTag().concat("/statements/collection-").concat(id).concat(".html"),
-        locale.getLanguage(), null,req);
+    String concat = "<".concat(routes.Application.getCollectionPage(id, version, null)
+        .url()).concat(">; rel=derivedfrom");
+    return  getPage(collection,
+        locale.toLanguageTag().concat("/statements/collection-").concat(id).concat(".html"),
+        locale.getLanguage(), null, req).withHeaders("Link", concat,"Content-Language", locale.getLanguage());
 
   }
 
@@ -289,6 +281,7 @@ public class Application extends Controller {
 
     return ok(handlebars.compile(templateFile).apply(scope)).as("text/html");
 
+
   }
 
   private Model getVocabModel(String version) {
@@ -321,51 +314,33 @@ public class Application extends Controller {
 
   }
 
-//  private MimeType getMimeType(Http.Request request, String extension) {
-//
-//    if (extension != null) {
-//      return getMimeTypeByExtension(extension);
-//    } else {
-//      return getMimeTypeFromRequest(request);
-//    }
-//
-//  }
+  private String getMimeType(Http.Request request, String extension) {
 
-//  private static MimeType getMimeTypeFromRequest(Http.Request request) {
-//
-//    MimeType mimeType;
-//    List<MediaRange> acceptedTypes = request.acceptedTypes();
-//
-//    try {
-//      if (! acceptedTypes.isEmpty()) {
-//        mimeType = new MimeType(request.acceptedTypes().get(0).toString());
-//      } else {
-//        mimeType = new MimeType("*/*");
-//      }
-//    } catch (MimeTypeParseException e) {
-//      Logger.error(e.toString());
-//      mimeType = new MimeType();
-//    }
-//
-//    return mimeType;
-//
-//  }
+    if (extension != null) {
+      return getMimeTypeByExtension(extension);
+    } else {
+      return getMimeTypeFromRequest(request);
+    }
 
-//  private static MimeType getMimeTypeByExtension(@Nonnull String extension) {
-//
-//    for (Map.Entry<String, Object> entry : mimeTypeExtMap.entrySet()) {
-//      if (entry.getValue().equals(extension)) {
-//        try {
-//          return new MimeType(entry.getKey());
-//        } catch (MimeTypeParseException e) {
-//          Logger.error(e.toString());
-//        }
-//      }
-//    }
-//
-//    return new MimeType();
-//
-//  }
+  }
+
+  private static String getMimeTypeFromRequest(Http.Request request) {
+    String mimeType = "*/*";
+    List<MediaRange> acceptedTypes = request.acceptedTypes();
+    if (!acceptedTypes.isEmpty()) {
+      mimeType = request.acceptedTypes().get(0).toString();
+    }
+    return mimeType;
+  }
+
+  private static String getMimeTypeByExtension(String extension) {
+    for (Map.Entry<String, Object> entry : mimeTypeExtMap.entrySet()) {
+      if (entry.getValue().equals(extension)) {
+          return  entry.getKey();
+      }
+    }
+    return "*/*";
+  }
 
   private Locale getLocale(Http.Request request, String language) {
 
@@ -435,7 +410,7 @@ public class Application extends Controller {
 
         alternates.add(String.format("{\"%s\" 0.9 {text/html}}", pageUrl));
 
-        for ( Entry<String, ConfigValue> entry : mimeTypeExtMap.entrySet()) {
+        for ( Map.Entry<String, Object> entry : mimeTypeExtMap.entrySet()) {
           if (entry.getKey().equals("*/*")) {
             continue;
           }
@@ -479,13 +454,13 @@ public class Application extends Controller {
 
 
 
-private static Map<String, ConfigValue> getMap(Set<Entry<String, ConfigValue>> inputSet){
-  return inputSet.stream()
-      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-}
-
-
+  private static Map<String, Object> generateValueMap(Config queries)  {
+    Map<String, Object> result = new HashMap<>();
+    for(String key : queries.root().keySet()){
+      result.put(key,queries.getAnyRef(key));
+    }
+    return result;
+  }
 
   public Result index() {
     return ok(views.html.index.render());

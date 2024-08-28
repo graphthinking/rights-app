@@ -1,4 +1,4 @@
-GET   /                                   controllers.Application.index()
+#GET   /                                   controllers.Application.index()
 GET   /vocab/:version/                    controllers.Application.getVocab(version: String, request: Request)
 GET   /vocab/collection-:id/:version/     controllers.Application.getCollection(id: String, version: String,request: Request)
 GET   /vocab/:id/:version/                controllers.Application.getStatement(id: String, version: String,request: Request)
