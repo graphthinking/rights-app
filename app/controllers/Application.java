@@ -427,7 +427,7 @@ public class Application extends Controller {
   private HashMap<String, String> getParameters(Http.Request request, String id) {
 
     HashMap<String, String> parameters = new HashMap<>();
-    String validParameters =   Application.validParameters.get(id).toString();
+    String validParameters =  Application.validParameters.get(id)!=null? Application.validParameters.get(id).toString():null;
 
     if (validParameters != null) {
       for (String validParameter : validParameters.split(" ")) {
