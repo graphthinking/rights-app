@@ -281,9 +281,9 @@ public class Application extends Controller {
     localized.write(boas, "JSON-LD");
 
     String output = boas.toString();
-    String replacedUrlOutput = output.replace("http://rightsstatements.org/",
-        configuration.underlying().getString("siteurl"));
-    scope.put("data", new ObjectMapper().readValue(replacedUrlOutput, HashMap.class));
+//    String replacedUrlOutput = output.replace("http://rightsstatements.org/",
+//        configuration.underlying().getString("siteurl"));
+    scope.put("data", new ObjectMapper().readValue(output, HashMap.class));
 
    // logger.info(replacedUrlOutput);
 

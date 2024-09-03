@@ -7,7 +7,7 @@ Handlebars.registerHelper('a', function (href, options) {
 });
 
 Handlebars.registerHelper('resource', function(id, graph, options) {
-if(!!graph) {
+if(graph !== null) {
   for (var i = 0; i < graph.length; i++) {
     if(graph[i]['@id']==id){
       return options.fn(graph[i]);
