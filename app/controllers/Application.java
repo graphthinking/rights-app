@@ -12,10 +12,6 @@ import com.hp.hpl.jena.rdf.model.ModelFactory;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigValue;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringEscapeUtils;
 import play.api.Configuration;
@@ -46,9 +42,27 @@ import java.util.ArrayList;
  */
 public class Application extends Controller {
 
-  private static Map<String, Object> mimeTypeParserMap = generateValueMap(ConfigFactory.load().getConfig("parser"));
+  private static Map<String, Object> mimeTypeParserMap = generateParserMap();// generateValueMap(ConfigFactory.load().getConfig("parser"));
 
-  private static Map<String, Object> mimeTypeExtMap =  generateValueMap(ConfigFactory.load().getConfig("extension"));
+  private static Map<String, Object> generateParserMap() {
+    Map<String, Object> mimeTypeParserMap =  new HashMap<>();
+    mimeTypeParserMap.put("text/turtle","TURTLE");
+    mimeTypeParserMap.put("application/json","JSON-LD");
+    mimeTypeParserMap.put("application/ld+json","JSON-LD");
+    mimeTypeParserMap.put("*/*","JSON-LD");
+    return mimeTypeParserMap;
+  }
+
+  private static Map<String, Object> mimeTypeExtMap =  generateExtentionsMap();//generateValueMap(ConfigFactory.load().getConfig("extension"));
+
+  private static Map<String, Object> generateExtentionsMap() {
+    Map<String, Object> extensionsMap =  new HashMap<>();
+    extensionsMap.put("text/turtle" ,"ttl");
+    extensionsMap.put("application/json" ,"json");
+    extensionsMap.put("application/ld+json" ,"jsonld");
+    extensionsMap.put("*/*" ,"json");
+    return extensionsMap;
+  }
 
   private static Map<String, Object> defaults =generateValueMap( ConfigFactory.load().getConfig("default"));
 
@@ -95,15 +109,13 @@ public class Application extends Controller {
       return notFoundPage(request);
     }
 
-    //MimeType mimeType = getMimeType(request, extension);
-    String mimeType ="application/json";
-//    response().setHeader("Content-Location", routes.Application.getVocabData(version,
-//        mimeTypeExtMap.getOrDefault(mimeType.toString(), defaults.get("mime").toString()).toString())
-//        .url());
-//    response().setHeader("Link", "<".concat(routes.Application.getVocabData(version, null)
-//        .url()).concat(">; rel=derivedfrom"));
 
-    return getData(vocab, mimeType);
+    String mimeType =getMimeType(request, extension);
+    String mime = routes.Application.getVocabData(version,mimeTypeExtMap.getOrDefault(mimeType.toString(),
+        defaults.get("mime").toString()).toString()).url();
+    String link = "<".concat(routes.Application.getVocabData(version, null)
+        .url()).concat(">; rel=derivedfrom");
+    return getData(vocab, mimeType).withHeaders("Content-Location", mime,"Link",    link);
 
   }
 
@@ -126,8 +138,7 @@ public class Application extends Controller {
   public Result getStatement(String id, String version,Http.Request req) {
 
     if (!req.queryString().isEmpty()) {
-      setAlternates(req, id, version, true);
-      return notAcceptablePage(req);
+      return notAcceptablePage(req).withHeaders("Alternates", setAlternates(req, id, version, true));
     } else  if (req.accepts("text/html")) {
       Locale locale = getLocale(req, null);
       return redirect(routes.Application.getStatementPage(id, version, locale.getLanguage()).url());
@@ -140,8 +151,7 @@ public class Application extends Controller {
   public Result getStatementData(String id, String version, String extension, Http.Request req) {
 
     if (!req.queryString().isEmpty()) {
-      setAlternates(req, id, version, false);
-      return notAcceptablePage(req);
+      return notAcceptablePage(req).withHeaders("Alternates",setAlternates(req, id, version, false));
     }
 
     Model rightsStatement = getStatementModel(id, version);
@@ -213,9 +223,10 @@ public class Application extends Controller {
     }
     String concat = "<".concat(routes.Application.getCollectionPage(id, version, null)
         .url()).concat(">; rel=derivedfrom");
-    return  getPage(collection,
+    Result result = getPage(collection,
         locale.toLanguageTag().concat("/statements/collection-").concat(id).concat(".html"),
-        locale.getLanguage(), null, req).withHeaders("Link", concat,"Content-Language", locale.getLanguage());
+        locale.getLanguage(), null, req);
+    return  result.withHeaders("Link", concat,"Content-Language", locale.getLanguage());
 
   }
 
@@ -266,7 +277,12 @@ public class Application extends Controller {
 
     OutputStream boas = new ByteArrayOutputStream();
     localized.write(boas, "JSON-LD");
-    scope.put("data", new ObjectMapper().readValue(boas.toString(), HashMap.class));
+
+    String output = boas.toString();
+    String replacedUrlOutput = output.replace("http://rightsstatements.org/",
+        configuration.underlying().getString("siteurl"));
+    scope.put("data", new ObjectMapper().readValue(replacedUrlOutput, HashMap.class));
+
 
     TemplateLoader loader = layoutProvider.getTemplateLoader();
     loader.setPrefix(getDeployUrl(req));
@@ -279,7 +295,9 @@ public class Application extends Controller {
       Logger.error(e.toString());
     }
 
-    return ok(handlebars.compile(templateFile).apply(scope)).as("text/html");
+    String apply = handlebars.compile(templateFile).apply(scope);
+
+    return ok(apply).as("text/html");
 
 
   }
@@ -383,33 +401,23 @@ public class Application extends Controller {
 
   }
 
-  private void setAlternates(Http.Request request, String id, String version, boolean includeVocab) {
+  private String setAlternates(Request request, String id, String version, boolean includeVocab) {
 
-    Map<String, String[]> parameters = request.queryString();
-
-    if (parameters.size() > 0) {
-
+    List<String> alternates = new ArrayList<>();
+    if (request.queryString().size() > 0) {
       List<String> recoveryParameters = new ArrayList<>();
-
       for (Map.Entry<String, String> parameter : getParameters(request, id).entrySet()) {
         recoveryParameters.add(parameter.getKey().concat("=").concat(parameter.getValue()));
       }
-
       if (!recoveryParameters.isEmpty()) {
-
         String vocabUrl = routes.Application.getStatement(id, version).url();
         String pageUrl = routes.Application.getStatementPage(id, version, null).url().concat("?")
             .concat(String.join("&", recoveryParameters));
         String dataUrl = routes.Application.getStatementData(id, version, null).url();
-
-        List<String> alternates = new ArrayList<>();
-
         if (includeVocab) {
           alternates.add(String.format("{\"%s\" 0.9}", vocabUrl));
         }
-
         alternates.add(String.format("{\"%s\" 0.9 {text/html}}", pageUrl));
-
         for ( Map.Entry<String, Object> entry : mimeTypeExtMap.entrySet()) {
           if (entry.getKey().equals("*/*")) {
             continue;
@@ -421,6 +429,7 @@ public class Application extends Controller {
       }
 
     }
+    return String.join(",", alternates);
 
   }
 
