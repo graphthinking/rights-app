@@ -23,9 +23,9 @@
     </encoder>
   </appender>
 
-  <appender name="ASYNCFILE" class="AsyncAppender">
-    <appender-ref ref="FILE"/>
-  </appender>
+<!--  <appender name="ASYNCFILE" class="AsyncAppender">-->
+<!--    <appender-ref ref="FILE"/>-->
+<!--  </appender>-->
 
   <appender name="ASYNCSTDOUT" class="AsyncAppender">
     <appender-ref ref="STDOUT"/>

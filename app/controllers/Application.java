@@ -285,7 +285,7 @@ public class Application extends Controller {
         configuration.underlying().getString("siteurl"));
     scope.put("data", new ObjectMapper().readValue(replacedUrlOutput, HashMap.class));
 
-    logger.info(replacedUrlOutput);
+   // logger.info(replacedUrlOutput);
 
     TemplateLoader loader = layoutProvider.getTemplateLoader();
     loader.setPrefix(getDeployUrl(req));
