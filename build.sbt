@@ -16,7 +16,7 @@ libraryDependencies += "com.google.inject" % "guice" % "3+"
 libraryDependencies += guice
 
 Test / javaOptions += "-Dconfig.file=conf/test.conf"
-Universal / javaOptions ++= Seq("-Dpidfile.path=/dev/null")
+Universal / javaOptions ++= Seq("-Dpidfile.path=/dev/null","-Dconfig.file=conf/environment.conf")
 scalaVersion := "2.13.14"
 
 enablePlugins(JavaAppPackaging,DockerPlugin)
