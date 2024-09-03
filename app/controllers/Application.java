@@ -14,6 +14,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
 import org.apache.commons.lang3.StringEscapeUtils;
+import play.Logger.ALogger;
 import play.api.Configuration;
 import play.Logger;
 import play.api.Environment;
@@ -43,6 +44,7 @@ import java.util.ArrayList;
 public class Application extends Controller {
 
   private static Map<String, Object> mimeTypeParserMap = generateParserMap();// generateValueMap(ConfigFactory.load().getConfig("parser"));
+  private ALogger logger =Logger.of(this.getClass());
 
   private static Map<String, Object> generateParserMap() {
     Map<String, Object> mimeTypeParserMap =  new HashMap<>();
@@ -283,6 +285,7 @@ public class Application extends Controller {
         configuration.underlying().getString("siteurl"));
     scope.put("data", new ObjectMapper().readValue(replacedUrlOutput, HashMap.class));
 
+    logger.info(replacedUrlOutput);
 
     TemplateLoader loader = layoutProvider.getTemplateLoader();
     loader.setPrefix(getDeployUrl(req));
