@@ -14,7 +14,21 @@ spec:
     - host: ${K8S_HOSTNAME}
       http:
         paths:
-          - path: /
+          - path: /vocab
+            pathType: Prefix
+            backend:
+              service:
+                name: rights-app-service
+                port:
+                  number: 80
+          - path: /data
+            pathType: Prefix
+            backend:
+              service:
+                name: rights-app-service
+                port:
+                  number: 80
+          - path: /page
             pathType: Prefix
             backend:
               service:
