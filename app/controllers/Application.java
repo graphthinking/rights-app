@@ -4,25 +4,30 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.io.TemplateLoader;
 import com.google.inject.Inject;
+
 import com.hp.hpl.jena.query.QueryExecutionFactory;
 import com.hp.hpl.jena.query.QueryFactory;
 import com.hp.hpl.jena.rdf.model.Model;
 import com.hp.hpl.jena.rdf.model.ModelFactory;
 
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+
 import org.apache.commons.lang3.StringEscapeUtils;
-import play.Configuration;
+import play.Logger.ALogger;
+import play.api.Configuration;
 import play.Logger;
-import play.Play;
+import play.api.Environment;
 import play.api.http.MediaRange;
 import play.mvc.Controller;
 import play.mvc.Http;
+import play.mvc.Http.Request;
 import play.mvc.Result;
 import services.LayoutProvider;
 import services.VocabProvider;
 
-import javax.activation.MimeType;
-import javax.activation.MimeTypeParseException;
-import javax.annotation.Nonnull;
+//import javax.activation.MimeType;
+//import javax.activation.MimeTypeParseException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -38,17 +43,36 @@ import java.util.ArrayList;
  */
 public class Application extends Controller {
 
-  private static Map<String, Object> mimeTypeParserMap = Play.application().configuration().getConfig("parser").asMap();
+  private static Map<String, Object> mimeTypeParserMap = generateParserMap();// generateValueMap(ConfigFactory.load().getConfig("parser"));
+  private ALogger logger =Logger.of(this.getClass());
 
-  private static Map<String, Object> mimeTypeExtMap = Play.application().configuration().getConfig("extension").asMap();
+  private static Map<String, Object> generateParserMap() {
+    Map<String, Object> mimeTypeParserMap =  new HashMap<>();
+    mimeTypeParserMap.put("text/turtle","TURTLE");
+    mimeTypeParserMap.put("application/json","JSON-LD");
+    mimeTypeParserMap.put("application/ld+json","JSON-LD");
+    mimeTypeParserMap.put("*/*","JSON-LD");
+    return mimeTypeParserMap;
+  }
 
-  private static Map<String, Object> defaults = Play.application().configuration().getConfig("default").asMap();
+  private static Map<String, Object> mimeTypeExtMap =  generateExtentionsMap();//generateValueMap(ConfigFactory.load().getConfig("extension"));
 
-  private static Map<String, Object> validParameters = Play.application().configuration().getConfig("params").asMap();
+  private static Map<String, Object> generateExtentionsMap() {
+    Map<String, Object> extensionsMap =  new HashMap<>();
+    extensionsMap.put("text/turtle" ,"ttl");
+    extensionsMap.put("application/json" ,"json");
+    extensionsMap.put("application/ld+json" ,"jsonld");
+    extensionsMap.put("*/*" ,"json");
+    return extensionsMap;
+  }
 
-  private static Map<String, Object> sparqlQueries = Play.application().configuration().getConfig("queries").asMap();
+  private static Map<String, Object> defaults =generateValueMap( ConfigFactory.load().getConfig("default"));
 
-  private static Map<String, Object> languages = Play.application().configuration().getConfig("languages").asMap();
+  private static Map<String, Object> validParameters = generateValueMap(ConfigFactory.load().getConfig("params"));
+
+  private static Map<String, Object> sparqlQueries = generateValueMap(ConfigFactory.load().getConfig("queries"));
+
+  private static Map<String, Object> languages = generateValueMap(ConfigFactory.load().getConfig("languages"));
 
   private final VocabProvider vocabProvider;
 
@@ -56,67 +80,69 @@ public class Application extends Controller {
 
   private final Configuration configuration;
 
+  private Environment env;
+
   @Inject
-  public Application(VocabProvider vocabProvider, LayoutProvider layoutProvider, Configuration configuration) {
+  public Application(VocabProvider vocabProvider, LayoutProvider layoutProvider, Configuration configuration,Environment env) {
     this.vocabProvider = vocabProvider;
     this.layoutProvider = layoutProvider;
     this.configuration = configuration;
+    this.env = env;
   }
 
-  public Result getVocab(String version) {
-
-    if (request().accepts("text/html")) {
-      Locale locale = getLocale(request(), null);
+  public Result getVocab(String version, Http.Request request) {
+    Logger.info("Getting vocab for version: "+version);
+    if (request.accepts("text/html")) {
+      Locale locale = getLocale(request, null);
+      Logger.info(locale.getLanguage());
       return redirect(routes.Application.getVocabPage(version, locale.getLanguage()).url());
     } else {
+      Logger.info(routes.Application.getVocabData(version, null).url());
       return redirect(routes.Application.getVocabData(version, null).url());
     }
 
   }
 
-  public Result getVocabData(String version, String extension) {
+  public Result getVocabData(String version, String extension, Http.Request request) {
 
     Model vocab = getVocabModel(version);
 
     if (vocab.isEmpty()) {
-      return notFoundPage();
+      return notFoundPage(request);
     }
 
-    MimeType mimeType = getMimeType(request(), extension);
-    response().setHeader("Content-Location", routes.Application.getVocabData(version,
-        mimeTypeExtMap.getOrDefault(mimeType.toString(), defaults.get("mime").toString()).toString())
-        .url());
-    response().setHeader("Link", "<".concat(routes.Application.getVocabData(version, null)
-        .url()).concat(">; rel=derivedfrom"));
 
-    return getData(vocab, mimeType);
+    String mimeType =getMimeType(request, extension);
+    String mime = routes.Application.getVocabData(version,mimeTypeExtMap.getOrDefault(mimeType.toString(),
+        defaults.get("mime").toString()).toString()).url();
+    String link = "<".concat(routes.Application.getVocabData(version, null)
+        .url()).concat(">; rel=derivedfrom");
+    return getData(vocab, mimeType).withHeaders("Content-Location", mime,"Link",    link);
 
   }
 
-  public Result getVocabPage(String version, String language) throws IOException {
+  public Result getVocabPage(String version, String language,Http.Request request) throws IOException {
 
     Model vocab = getVocabModel(version);
-    Locale locale = getLocale(request(), language);
+    Locale locale = getLocale(request, language);
 
     if (vocab.isEmpty()) {
-      return notFoundPage();
+      return notFoundPage(request);
     }
 
-    response().setHeader("Link", "<".concat(routes.Application.getVocabPage(version, null)
-        .url()).concat(">; rel=derivedfrom"));
-    response().setHeader("Content-Language", locale.getLanguage());
+    String linkValue = "<".concat(routes.Application.getVocabPage(version, null).url()).concat(">; rel=derivedfrom");
 
-    return getPage(vocab, "/".concat(locale.toLanguageTag()).concat("/statements/vocab.html"), locale.getLanguage(), null);
 
+    return getPage(vocab, "/".concat(locale.toLanguageTag()).concat("/statements/vocab.html"), locale.getLanguage(), null,request)
+        .withHeaders("Content-Language", locale.getLanguage(),"Link",linkValue);
   }
 
-  public Result getStatement(String id, String version) {
+  public Result getStatement(String id, String version,Http.Request req) {
 
-    if (!request().queryString().isEmpty()) {
-      setAlternates(request(), id, version, true);
-      return notAcceptablePage();
-    } else  if (request().accepts("text/html")) {
-      Locale locale = getLocale(request(), null);
+    if (!req.queryString().isEmpty()) {
+      return notAcceptablePage(req).withHeaders("Alternates", setAlternates(req, id, version, true));
+    } else  if (req.accepts("text/html")) {
+      Locale locale = getLocale(req, null);
       return redirect(routes.Application.getStatementPage(id, version, locale.getLanguage()).url());
     } else {
       return redirect(routes.Application.getStatementData(id, version, null).url());
@@ -124,51 +150,46 @@ public class Application extends Controller {
 
   }
 
-  public Result getStatementData(String id, String version, String extension) {
+  public Result getStatementData(String id, String version, String extension, Http.Request req) {
 
-    if (!request().queryString().isEmpty()) {
-      setAlternates(request(), id, version, false);
-      return notAcceptablePage();
+    if (!req.queryString().isEmpty()) {
+      return notAcceptablePage(req).withHeaders("Alternates",setAlternates(req, id, version, false));
     }
 
     Model rightsStatement = getStatementModel(id, version);
 
     if (rightsStatement.isEmpty()) {
-      return notFoundPage();
+      return notFoundPage(req);
     }
 
-    MimeType mimeType = getMimeType(request(), extension);
-    response().setHeader("Content-Location", routes.Application.getStatementData(id, version,
-        mimeTypeExtMap.getOrDefault(mimeType.toString(), defaults.get("mime").toString()).toString())
-        .url());
-    response().setHeader("Link", "<".concat(routes.Application.getStatementData(id, version, null)
-        .url()).concat(">; rel=derivedfrom"));
+    String  mimeType = getMimeType(req, extension);
+    String location = routes.Application.getStatementData(id, version,
+            mimeTypeExtMap.getOrDefault(mimeType.toString(), defaults.get("mime").toString())
+                .toString()).url();
+    String link = "<".concat(routes.Application.getStatementData(id, version, null)
+        .url()).concat(">; rel=derivedfrom");
 
-    return getData(rightsStatement, mimeType);
+    return getData(rightsStatement, mimeType).withHeaders("Content-Location", location,"Link", link);
 
   }
 
-  public Result getStatementPage(String id, String version, String language) throws IOException {
+  public Result getStatementPage(String id, String version, String language,Http.Request req) throws IOException {
 
     Model rightsStatement = getStatementModel(id, version);
-    Locale locale = getLocale(request(), language);
+    Locale locale = getLocale(req, language);
 
     if (rightsStatement.isEmpty()) {
-      return notFoundPage();
+      return notFoundPage(req);
     }
-
-    response().setHeader("Link", "<".concat(routes.Application.getStatementPage(id, version, null)
+    return getPage(rightsStatement, "/en/statement.hbs", locale.getLanguage(),
+        getParameters(req, id), req).withHeaders("Content-Language", locale.getLanguage(),"Link", "<".concat(routes.Application.getStatementPage(id, version, null)
         .url()).concat(">; rel=derivedfrom"));
-    response().setHeader("Content-Language", locale.getLanguage());
-
-    return getPage(rightsStatement, "/en/statement.hbs", locale.getLanguage(), getParameters(request(), id));
-
   }
 
-  public Result getCollection(String id, String version) {
+  public Result getCollection(String id, String version,Http.Request req) {
 
-    if (request().accepts("text/html")) {
-      Locale locale = getLocale(request(), null);
+    if (req.accepts("text/html")) {
+      Locale locale = getLocale(req, null);
       return redirect(routes.Application.getCollectionPage(id, version, locale.getLanguage()).url());
     } else {
       return redirect(routes.Application.getCollectionData(id, version, null).url());
@@ -176,46 +197,44 @@ public class Application extends Controller {
 
   }
 
-  public Result getCollectionData(String id, String version, String extension) {
+  public Result getCollectionData(String id, String version, String extension,Http.Request req) {
 
     Model collection = getCollectionModel(id, version);
 
     if (collection.isEmpty()) {
-      return notFoundPage();
+      return notFoundPage(req);
     }
 
-    MimeType mimeType = getMimeType(request(), extension);
-    response().setHeader("Content-Location", routes.Application.getCollectionData(id, version,
-        mimeTypeExtMap.getOrDefault(mimeType.toString(), defaults.get("mime").toString()).toString())
-        .url());
-    response().setHeader("Link", "<".concat(routes.Application.getCollectionData(id, version, null)
-        .url()).concat(">; rel=derivedfrom"));
+    String mimeType = getMimeType(req, extension);
 
-    return getData(collection, mimeType);
+    String mime = routes.Application.getCollectionData(id, version,
+            mimeTypeExtMap.getOrDefault(mimeType.toString(), defaults.get("mime").toString()).toString()).url();
+    String link = "<".concat(routes.Application.getCollectionData(id, version, null)
+        .url()).concat(">; rel=derivedfrom");
+    return getData(collection, mimeType).withHeaders("Content-Location", mime,"Link", link);
 
   }
 
-  public Result getCollectionPage(String id, String version, String language) throws IOException {
+  public Result getCollectionPage(String id, String version, String language,Http.Request req) throws IOException {
 
     Model collection = getVocabModel(version);
-    Locale locale = getLocale(request(), language);
+    Locale locale = getLocale(req, language);
 
     if (collection.isEmpty()) {
-      return notFoundPage();
+      return notFoundPage(req);
     }
-
-    response().setHeader("Link", "<".concat(routes.Application.getCollectionPage(id, version, null)
-        .url()).concat(">; rel=derivedfrom"));
-    response().setHeader("Content-Language", locale.getLanguage());
-
-    return getPage(collection, locale.toLanguageTag().concat("/statements/collection-").concat(id).concat(".html"),
-        locale.getLanguage(), null);
+    String concat = "<".concat(routes.Application.getCollectionPage(id, version, null)
+        .url()).concat(">; rel=derivedfrom");
+    Result result = getPage(collection,
+        locale.toLanguageTag().concat("/statements/collection-").concat(id).concat(".html"),
+        locale.getLanguage(), null, req);
+    return  result.withHeaders("Link", concat,"Content-Language", locale.getLanguage());
 
   }
 
-  private Result notFoundPage() {
+  private Result notFoundPage(Request request) {
     TemplateLoader loader = layoutProvider.getTemplateLoader();
-    loader.setPrefix(getDeployUrl());
+    loader.setPrefix(getDeployUrl(request));
     try {
       return notFound(loader.sourceAt("/en/404.html").content()).as("text/html");
     } catch (IOException e) {
@@ -225,9 +244,9 @@ public class Application extends Controller {
 
   }
 
-  private Result notAcceptablePage() {
+  private Result notAcceptablePage(Request req) {
     TemplateLoader loader = layoutProvider.getTemplateLoader();
-    loader.setPrefix(getDeployUrl());
+    loader.setPrefix(getDeployUrl(req));
     try {
       return status(406, loader.sourceAt("/en/406.html").content()).as("text/html");
     } catch (IOException e) {
@@ -237,17 +256,17 @@ public class Application extends Controller {
 
   }
 
-  private Result getData(Model model, MimeType mimeType) {
+  private Result getData(Model model, String mimeType) {
 
     OutputStream result = new ByteArrayOutputStream();
-    model.write(result, mimeTypeParserMap.getOrDefault(mimeType.toString(), defaults.get("parser").toString())
+    model.write(result, mimeTypeParserMap.getOrDefault(mimeType, defaults.get("parser"))
         .toString());
     return ok(result.toString()).as(
-        mimeType.toString().equals("*/*") ? defaults.get("mime").toString() : mimeType.toString());
+        mimeType.equals("*/*") ? defaults.get("mime").toString() : mimeType);
 
   }
 
-  private Result getPage(Model model, String templateFile, String language, HashMap<String, String> parameters)
+  private Result getPage(Model model, String templateFile, String language, HashMap<String, String> parameters,Http.Request req)
       throws IOException {
 
     Model localized = ModelFactory.createDefaultModel();
@@ -260,20 +279,29 @@ public class Application extends Controller {
 
     OutputStream boas = new ByteArrayOutputStream();
     localized.write(boas, "JSON-LD");
-    scope.put("data", new ObjectMapper().readValue(boas.toString(), HashMap.class));
+
+    String output = boas.toString();
+//    String replacedUrlOutput = output.replace("http://rightsstatements.org/",
+//        configuration.underlying().getString("siteurl"));
+    scope.put("data", new ObjectMapper().readValue(output, HashMap.class));
+
+   // logger.info(replacedUrlOutput);
 
     TemplateLoader loader = layoutProvider.getTemplateLoader();
-    loader.setPrefix(getDeployUrl());
+    loader.setPrefix(getDeployUrl(req));
     Handlebars handlebars = new Handlebars(loader);
 
     try {
-      handlebars.registerHelpers("helpers.js", Play.application().classloader()
+      handlebars.registerHelpers("helpers.js",env.classLoader()
           .getResourceAsStream("public/js/helpers.js"));
     } catch (Exception e) {
       Logger.error(e.toString());
     }
 
-    return ok(handlebars.compile(templateFile).apply(scope)).as("text/html");
+    String apply = handlebars.compile(templateFile).apply(scope);
+
+    return ok(apply).as("text/html");
+
 
   }
 
@@ -307,7 +335,7 @@ public class Application extends Controller {
 
   }
 
-  private MimeType getMimeType(Http.Request request, String extension) {
+  private String getMimeType(Http.Request request, String extension) {
 
     if (extension != null) {
       return getMimeTypeByExtension(extension);
@@ -317,40 +345,22 @@ public class Application extends Controller {
 
   }
 
-  private static MimeType getMimeTypeFromRequest(Http.Request request) {
-
-    MimeType mimeType;
+  private static String getMimeTypeFromRequest(Http.Request request) {
+    String mimeType = "*/*";
     List<MediaRange> acceptedTypes = request.acceptedTypes();
-
-    try {
-      if (! acceptedTypes.isEmpty()) {
-        mimeType = new MimeType(request.acceptedTypes().get(0).toString());
-      } else {
-        mimeType = new MimeType("*/*");
-      }
-    } catch (MimeTypeParseException e) {
-      Logger.error(e.toString());
-      mimeType = new MimeType();
+    if (!acceptedTypes.isEmpty()) {
+      mimeType = request.acceptedTypes().get(0).toString();
     }
-
     return mimeType;
-
   }
 
-  private static MimeType getMimeTypeByExtension(@Nonnull String extension) {
-
+  private static String getMimeTypeByExtension(String extension) {
     for (Map.Entry<String, Object> entry : mimeTypeExtMap.entrySet()) {
       if (entry.getValue().equals(extension)) {
-        try {
-          return new MimeType(entry.getKey());
-        } catch (MimeTypeParseException e) {
-          Logger.error(e.toString());
-        }
+          return  entry.getKey();
       }
     }
-
-    return new MimeType();
-
+    return "*/*";
   }
 
   private Locale getLocale(Http.Request request, String language) {
@@ -394,52 +404,42 @@ public class Application extends Controller {
 
   }
 
-  private void setAlternates(Http.Request request, String id, String version, boolean includeVocab) {
+  private String setAlternates(Request request, String id, String version, boolean includeVocab) {
 
-    Map<String, String[]> parameters = request.queryString();
-
-    if (parameters.size() > 0) {
-
+    List<String> alternates = new ArrayList<>();
+    if (request.queryString().size() > 0) {
       List<String> recoveryParameters = new ArrayList<>();
-
       for (Map.Entry<String, String> parameter : getParameters(request, id).entrySet()) {
         recoveryParameters.add(parameter.getKey().concat("=").concat(parameter.getValue()));
       }
-
       if (!recoveryParameters.isEmpty()) {
-
         String vocabUrl = routes.Application.getStatement(id, version).url();
         String pageUrl = routes.Application.getStatementPage(id, version, null).url().concat("?")
             .concat(String.join("&", recoveryParameters));
         String dataUrl = routes.Application.getStatementData(id, version, null).url();
-
-        List<String> alternates = new ArrayList<>();
-
         if (includeVocab) {
           alternates.add(String.format("{\"%s\" 0.9}", vocabUrl));
         }
-
         alternates.add(String.format("{\"%s\" 0.9 {text/html}}", pageUrl));
-
-        for (Map.Entry<String, Object> entry : mimeTypeExtMap.entrySet()) {
+        for ( Map.Entry<String, Object> entry : mimeTypeExtMap.entrySet()) {
           if (entry.getKey().equals("*/*")) {
             continue;
           }
           alternates.add(String.format("{\"%s\" 0.9 {".concat(entry.getKey()).concat("}}"), dataUrl));
         }
-
-        response().setHeader("Alternates", String.join(",", alternates));
+        //response().setHeader("Alternates", String.join(",", alternates));
 
       }
 
     }
+    return String.join(",", alternates);
 
   }
 
   private HashMap<String, String> getParameters(Http.Request request, String id) {
 
     HashMap<String, String> parameters = new HashMap<>();
-    String validParameters = (String) Application.validParameters.get(id);
+    String validParameters =  Application.validParameters.get(id)!=null? Application.validParameters.get(id).toString():null;
 
     if (validParameters != null) {
       for (String validParameter : validParameters.split(" ")) {
@@ -454,13 +454,27 @@ public class Application extends Controller {
 
   }
 
-  private String getDeployUrl() {
-    if (configuration.getString("source.site.http") != null) {
-      return configuration.getString("source.site.http");
+  private String getDeployUrl(Http.Request req) {
+    if (configuration.underlying().getString("source.site.http") != null) {
+      return configuration.underlying().getString("source.site.http");
     }
-    return request().hasHeader("X-Deploy-Url")
-      ? request().getHeader("X-Deploy-Url")
+    return req.hasHeader("X-Deploy-Url")
+      ? req.headers().get("X-Deploy-Url").get()
       : "/";
   }
 
-} 
+
+
+
+  private static Map<String, Object> generateValueMap(Config queries)  {
+    Map<String, Object> result = new HashMap<>();
+    for(String key : queries.root().keySet()){
+      result.put(key,queries.getAnyRef(key));
+    }
+    return result;
+  }
+
+  public Result index() {
+    return ok(views.html.index.render());
+  }
+}

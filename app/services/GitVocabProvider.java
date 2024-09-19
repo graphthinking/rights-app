@@ -4,6 +4,12 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import com.hp.hpl.jena.rdf.model.Model;
 import com.hp.hpl.jena.rdf.model.ModelFactory;
+
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigValue;
+import java.util.Map.Entry;
+import java.util.Optional;
+import java.util.Set;
 import org.apache.commons.io.FileUtils;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -16,13 +22,14 @@ import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.eclipse.jgit.treewalk.filter.PathSuffixFilter;
-import play.Configuration;
+import play.api.Configuration;
 import play.Logger;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import scala.Option;
 
 
 /**
@@ -37,29 +44,28 @@ public class GitVocabProvider implements VocabProvider {
   @Inject
   public GitVocabProvider(Configuration configuration) {
 
-    Configuration source = configuration.getConfig("source.data");
-    Configuration gitSource = source.getConfig("git");
-    Configuration formats = source.getConfig("formats");
-
+    Config source = configuration.underlying().getConfig("source.data");
+    Config gitSource = source.getConfig("git");
+    Config formats =  source.getConfig("formats");
     try {
 
       String remoteURL = gitSource.getString("remote");
-      File localPath = new File(gitSource.getString("local"));
+      File localPath = new File(String.valueOf(gitSource.getString("local")));
       FileUtils.deleteDirectory(localPath);
 
       try (Git git = Git.cloneRepository().setURI(remoteURL).setDirectory(localPath).call()) {
 
         Repository repository = git.getRepository();
-        ObjectId lastCommitId = repository.resolve(gitSource.getString("rev"));
+        ObjectId lastCommitId = repository.resolve(String.valueOf(gitSource.getString("rev")));
 
         try (RevWalk revWalk = new RevWalk(repository)) {
 
           RevCommit commit = revWalk.parseCommit(lastCommitId);
           RevTree tree = commit.getTree();
 
-          for (String format : formats.asMap().keySet()) {
-            String ext = formats.getConfig(format).getString("ext");
-            String lang = formats.getConfig(format).getString("lang");
+          for (String formatName : formats.root().keySet()) {
+            String ext = formats.getConfig(formatName).getString("ext");
+            String lang =formats.getConfig(formatName).getString("lang");
 
             try (TreeWalk treeWalk = new TreeWalk(repository)) {
               treeWalk.addTree(tree);

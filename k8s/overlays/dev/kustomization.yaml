@@ -1,0 +1,11 @@
+resources:
+  - ../../base
+  - nodeport.yaml
+
+patches:
+  - path: deployment_patch.yaml
+
+labels:
+  - includeSelectors: true
+    pairs:
+      app: rights-app

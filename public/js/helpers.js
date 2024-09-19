@@ -7,12 +7,14 @@ Handlebars.registerHelper('a', function (href, options) {
 });
 
 Handlebars.registerHelper('resource', function(id, graph, options) {
-
+if(graph !== null) {
   for (var i = 0; i < graph.length; i++) {
-    if (graph[i]['@id'] == id) {
+    if(graph[i]['@id']==id){
       return options.fn(graph[i]);
     }
   }
+}
+return "undefined graph";
 
 });
 
@@ -26,7 +28,7 @@ Handlebars.registerHelper('property', function(property, graph, options) {
 
   for (var i = 0; i < property.length; i++) {
     for (var j = 0; j < graph.length; j++) {
-      if (graph[j]['@id'] == property[i]) {
+        if(graph[j]['@id']==property[i]) {
         graphs.push(graph[j]);
       }
     }

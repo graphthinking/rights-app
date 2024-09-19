@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rights-app-deployment
+spec:
+  # selector.matchLabels is provided via Kustomize
+  template:
+    spec:
+      containers:
+        - name: rights-app
+          image: europeana/rights-app
+          ports:
+            - containerPort: 9000
+#          livenessProbe:
+#            httpGet:
+#              port: 8080
+#              path: /actuator/health/liveness
+#              httpHeaders:
+#                - name: Accept
+#                  value: application/json
+#            initialDelaySeconds: 90
+#            periodSeconds: 60
+#          readinessProbe:
+#            httpGet:
+#              port: 8080
+#              path: /actuator/health/readiness
+#              httpHeaders:
+#                - name: Accept
+#                  value: application/json
+#            initialDelaySeconds: 60
+#            periodSeconds: 60

@@ -1,8 +1,9 @@
 package modules;
 
 import com.google.inject.AbstractModule;
-import play.Configuration;
-import play.Environment;
+import play.api.Configuration;
+import play.api.Environment;
+import play.api.Play;
 import services.LayoutProvider;
 
 /**
@@ -21,7 +22,8 @@ public class LayoutProviderModule extends AbstractModule {
 
   protected void configure() {
 
-    String vocabVersion = configuration.getString("layout.provider");
+    String vocabVersion = configuration.underlying().getString("layout.provider");
+
     try {
       Class<? extends LayoutProvider> bindingClass = environment.classLoader().loadClass(vocabVersion)
           .asSubclass(LayoutProvider.class);
