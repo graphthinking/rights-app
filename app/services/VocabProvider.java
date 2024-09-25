@@ -7,7 +7,5 @@ import com.hp.hpl.jena.rdf.model.Model;
  */
 
 public interface VocabProvider {
-
   public Model getVocab();
-
 }

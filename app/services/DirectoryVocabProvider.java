@@ -28,18 +28,16 @@ public class DirectoryVocabProvider implements VocabProvider {
 
   @Inject
   public DirectoryVocabProvider(Configuration configuration) {
-
     Config source = configuration.underlying().getConfig("source.data");
-   //Configuration source = source;
     String sourceDir = source.getString("dir");
-    ConfigList formats = source.getList("formats");
+    Config formats = source.getConfig("formats");
     Path sourcePath = new File(sourceDir).isAbsolute()
         ? Paths.get(new File(sourceDir).getPath())
         : Paths.get(ClassLoader.getSystemResource(sourceDir).getPath());
 
-    for (ConfigValue format : formats) {
-      String ext ="";// formats.getConfig(format.subKeys()).get().getString("ext");
-      String lang = "";//formats.getConfig(format.toString()).get().getString("lang");
+    for (String formatName : formats.root().keySet()) {
+      String ext = formats.getConfig(formatName).getString("ext");
+      String lang = formats.getConfig(formatName).getString("lang");
       try (DirectoryStream<Path> files = Files.newDirectoryStream(sourcePath, "*".concat(ext))) {
         for (Path file : files) {
           vocab.read(Files.newInputStream(file), null, lang);
@@ -48,12 +46,10 @@ public class DirectoryVocabProvider implements VocabProvider {
         Logger.error(e.toString());
       }
     }
-
   }
 
   @Override
   public Model getVocab() {
     return vocab;
   }
-
 }

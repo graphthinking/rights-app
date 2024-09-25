@@ -26,8 +26,6 @@ import play.mvc.Result;
 import services.LayoutProvider;
 import services.VocabProvider;
 
-//import javax.activation.MimeType;
-//import javax.activation.MimeTypeParseException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -100,18 +98,13 @@ public class Application extends Controller {
       Logger.info(routes.Application.getVocabData(version, null).url());
       return redirect(routes.Application.getVocabData(version, null).url());
     }
-
   }
 
   public Result getVocabData(String version, String extension, Http.Request request) {
-
     Model vocab = getVocabModel(version);
-
     if (vocab.isEmpty()) {
       return notFoundPage(request);
     }
-
-
     String mimeType =getMimeType(request, extension);
     String mime = routes.Application.getVocabData(version,mimeTypeExtMap.getOrDefault(mimeType.toString(),
         defaults.get("mime").toString()).toString()).url();
@@ -122,23 +115,17 @@ public class Application extends Controller {
   }
 
   public Result getVocabPage(String version, String language,Http.Request request) throws IOException {
-
     Model vocab = getVocabModel(version);
     Locale locale = getLocale(request, language);
-
     if (vocab.isEmpty()) {
       return notFoundPage(request);
     }
-
     String linkValue = "<".concat(routes.Application.getVocabPage(version, null).url()).concat(">; rel=derivedfrom");
-
-
     return getPage(vocab, "/".concat(locale.toLanguageTag()).concat("/statements/vocab.html"), locale.getLanguage(), null,request)
         .withHeaders("Content-Language", locale.getLanguage(),"Link",linkValue);
   }
 
   public Result getStatement(String id, String version,Http.Request req) {
-
     if (!req.queryString().isEmpty()) {
       return notAcceptablePage(req).withHeaders("Alternates", setAlternates(req, id, version, true));
     } else  if (req.accepts("text/html")) {
@@ -147,30 +134,23 @@ public class Application extends Controller {
     } else {
       return redirect(routes.Application.getStatementData(id, version, null).url());
     }
-
   }
 
   public Result getStatementData(String id, String version, String extension, Http.Request req) {
-
     if (!req.queryString().isEmpty()) {
       return notAcceptablePage(req).withHeaders("Alternates",setAlternates(req, id, version, false));
     }
-
     Model rightsStatement = getStatementModel(id, version);
-
     if (rightsStatement.isEmpty()) {
       return notFoundPage(req);
     }
-
     String  mimeType = getMimeType(req, extension);
     String location = routes.Application.getStatementData(id, version,
             mimeTypeExtMap.getOrDefault(mimeType.toString(), defaults.get("mime").toString())
                 .toString()).url();
     String link = "<".concat(routes.Application.getStatementData(id, version, null)
         .url()).concat(">; rel=derivedfrom");
-
     return getData(rightsStatement, mimeType).withHeaders("Content-Location", location,"Link", link);
-
   }
 
   public Result getStatementPage(String id, String version, String language,Http.Request req) throws IOException {
@@ -187,36 +167,28 @@ public class Application extends Controller {
   }
 
   public Result getCollection(String id, String version,Http.Request req) {
-
     if (req.accepts("text/html")) {
       Locale locale = getLocale(req, null);
       return redirect(routes.Application.getCollectionPage(id, version, locale.getLanguage()).url());
     } else {
       return redirect(routes.Application.getCollectionData(id, version, null).url());
     }
-
   }
 
   public Result getCollectionData(String id, String version, String extension,Http.Request req) {
-
     Model collection = getCollectionModel(id, version);
-
     if (collection.isEmpty()) {
       return notFoundPage(req);
     }
-
     String mimeType = getMimeType(req, extension);
-
     String mime = routes.Application.getCollectionData(id, version,
             mimeTypeExtMap.getOrDefault(mimeType.toString(), defaults.get("mime").toString()).toString()).url();
     String link = "<".concat(routes.Application.getCollectionData(id, version, null)
         .url()).concat(">; rel=derivedfrom");
     return getData(collection, mimeType).withHeaders("Content-Location", mime,"Link", link);
-
   }
 
   public Result getCollectionPage(String id, String version, String language,Http.Request req) throws IOException {
-
     Model collection = getVocabModel(version);
     Locale locale = getLocale(req, language);
 
@@ -229,7 +201,6 @@ public class Application extends Controller {
         locale.toLanguageTag().concat("/statements/collection-").concat(id).concat(".html"),
         locale.getLanguage(), null, req);
     return  result.withHeaders("Link", concat,"Content-Language", locale.getLanguage());
-
   }
 
   private Result notFoundPage(Request request) {
@@ -241,7 +212,6 @@ public class Application extends Controller {
       Logger.error(e.toString());
       return notFound("Not Found");
     }
-
   }
 
   private Result notAcceptablePage(Request req) {
@@ -253,17 +223,14 @@ public class Application extends Controller {
       Logger.error(e.toString());
       return status(406, "Not Acceptable");
     }
-
   }
 
   private Result getData(Model model, String mimeType) {
-
     OutputStream result = new ByteArrayOutputStream();
     model.write(result, mimeTypeParserMap.getOrDefault(mimeType, defaults.get("parser"))
         .toString());
     return ok(result.toString()).as(
         mimeType.equals("*/*") ? defaults.get("mime").toString() : mimeType);
-
   }
 
   private Result getPage(Model model, String templateFile, String language, HashMap<String, String> parameters,Http.Request req)
@@ -281,12 +248,7 @@ public class Application extends Controller {
     localized.write(boas, "JSON-LD");
 
     String output = boas.toString();
-//    String replacedUrlOutput = output.replace("http://rightsstatements.org/",
-//        configuration.underlying().getString("siteurl"));
     scope.put("data", new ObjectMapper().readValue(output, HashMap.class));
-
-   // logger.info(replacedUrlOutput);
-
     TemplateLoader loader = layoutProvider.getTemplateLoader();
     loader.setPrefix(getDeployUrl(req));
     Handlebars handlebars = new Handlebars(loader);
@@ -297,52 +259,37 @@ public class Application extends Controller {
     } catch (Exception e) {
       Logger.error(e.toString());
     }
-
     String apply = handlebars.compile(templateFile).apply(scope);
-
     return ok(apply).as("text/html");
-
-
   }
 
   private Model getVocabModel(String version) {
-
     Model vocab = ModelFactory.createDefaultModel();
     QueryExecutionFactory.create(QueryFactory.create(String.format(sparqlQueries.get("vocab").toString(), version)),
         vocabProvider.getVocab()).execConstruct(vocab);
-
     return vocab;
-
   }
 
   private Model getStatementModel(String id, String version) {
-
     Model statement = ModelFactory.createDefaultModel();
     QueryExecutionFactory.create(QueryFactory.create(String.format(sparqlQueries.get("statement").toString(), version,
         id)), vocabProvider.getVocab()).execConstruct(statement);
-
     return statement;
-
   }
 
   private Model getCollectionModel(String id, String version) {
-
     Model collection = ModelFactory.createDefaultModel();
     QueryExecutionFactory.create(QueryFactory.create(String.format(sparqlQueries.get("collection").toString(), id,
         version)), vocabProvider.getVocab()).execConstruct(collection);
-
     return collection;
-
   }
 
   private String getMimeType(Http.Request request, String extension) {
-
     if (extension != null) {
       return getMimeTypeByExtension(extension);
     } else {
       return getMimeTypeFromRequest(request);
     }
-
   }
 
   private static String getMimeTypeFromRequest(Http.Request request) {
@@ -383,25 +330,18 @@ public class Application extends Controller {
         }
       }
     }
-
     return availableLocales[0];
-
   }
 
   private Locale[] getLocalesFromRequest(Http.Request request) {
-
     if (!request.acceptLanguages().isEmpty()) {
       return request.acceptLanguages().stream().map(lang -> lang.toLocale()).toArray(Locale[]::new);
     }
-
     return null;
-
   }
 
   private Locale[] getLocalesByCode(String code) {
-
     return new Locale[]{Locale.forLanguageTag(code)};
-
   }
 
   private String setAlternates(Request request, String id, String version, boolean includeVocab) {
@@ -427,13 +367,9 @@ public class Application extends Controller {
           }
           alternates.add(String.format("{\"%s\" 0.9 {".concat(entry.getKey()).concat("}}"), dataUrl));
         }
-        //response().setHeader("Alternates", String.join(",", alternates));
-
       }
-
     }
     return String.join(",", alternates);
-
   }
 
   private HashMap<String, String> getParameters(Http.Request request, String id) {
@@ -449,9 +385,7 @@ public class Application extends Controller {
         }
       }
     }
-
     return parameters;
-
   }
 
   private String getDeployUrl(Http.Request req) {
@@ -462,9 +396,6 @@ public class Application extends Controller {
       ? req.headers().get("X-Deploy-Url").get()
       : "/";
   }
-
-
-
 
   private static Map<String, Object> generateValueMap(Config queries)  {
     Map<String, Object> result = new HashMap<>();

@@ -46,7 +46,7 @@ public class GitVocabProvider implements VocabProvider {
 
     Config source = configuration.underlying().getConfig("source.data");
     Config gitSource = source.getConfig("git");
-    Config formats =  source.getConfig("formats");
+    Config formats = source.getConfig("formats");
     try {
 
       String remoteURL = gitSource.getString("remote");
@@ -80,19 +80,12 @@ public class GitVocabProvider implements VocabProvider {
                 vocab.read(bais, null, lang);
               }
             }
-
           }
-
           revWalk.dispose();
-
         }
-
       }
-
     } catch (IOException | GitAPIException e) {
-
       Logger.error(e.toString());
-
     }
 
   }

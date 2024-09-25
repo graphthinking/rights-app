@@ -17,15 +17,11 @@ public class HttpLayoutProvider implements LayoutProvider {
   }
 
   public class HttpTemplateLoader extends URLTemplateLoader {
-
     protected URL getResource(final String location) throws IOException {
-
       Logger.debug("Fetching " + location);
       // TODO: cache templates, see e.g. https://stackoverflow.com/a/45439170
       return new URL(location);
-
     }
-
   }
 
 }
