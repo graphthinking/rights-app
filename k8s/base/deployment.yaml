@@ -20,6 +20,7 @@ spec:
                   value: application/json
             initialDelaySeconds: 90
             periodSeconds: 60
+            timeoutSeconds: 180
           readinessProbe:
             httpGet:
               port: 9000
@@ -29,3 +30,4 @@ spec:
                   value: application/json
             initialDelaySeconds: 60
             periodSeconds: 60
+            timeoutSeconds: 180
