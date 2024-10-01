@@ -9,6 +9,7 @@
   <import class="ch.qos.logback.classic.AsyncAppender"/>
   <import class="ch.qos.logback.core.FileAppender"/>
   <import class="ch.qos.logback.core.ConsoleAppender"/>
+  <variable name="application.home" value="/opt/docker" />
 
   <appender name="FILE" class="FileAppender">
     <file>${application.home:-.}/logs/application.log</file>
@@ -28,14 +29,20 @@
   </appender>
 
   <appender name="ASYNCSTDOUT" class="AsyncAppender">
+    <!-- increases the default queue size -->
+    <queueSize>512</queueSize>
+    <!-- don't discard messages -->
+    <discardingThreshold>0</discardingThreshold>
+    <!-- block when queue is full -->
+    <neverBlock>false</neverBlock>
     <appender-ref ref="STDOUT"/>
   </appender>
 
   <logger name="play" level="INFO"/>
-  <logger name="application" level="DEBUG"/>
+  <logger name="application" level="INFO"/>
 
-  <root level="DEBUG">
-    <appender-ref ref="ASYNCFILE"/>
+  <root level="WARN">
+    <!--<appender-ref ref="ASYNCFILE"/>  For production not using the File logging -->
     <appender-ref ref="ASYNCSTDOUT"/>
   </root>
 
