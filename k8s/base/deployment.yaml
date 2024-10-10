@@ -14,7 +14,7 @@ spec:
           livenessProbe:
             httpGet:
               port: 9000
-              path: /page/1.0/
+              path: /app/
               httpHeaders:
                 - name: Accept
                   value: application/json
@@ -24,7 +24,7 @@ spec:
           readinessProbe:
             httpGet:
               port: 9000
-              path: /page/1.0/
+              path: /app/
               httpHeaders:
                 - name: Accept
                   value: application/json
