@@ -89,10 +89,10 @@ public class Application extends Controller {
   }
 
   public Result getVocab(String version, Http.Request request) {
-    Logger.info("Getting vocab for version: "+version);
+    Logger.info("Getting vocab for version: {}", version);
     if (request.accepts("text/html")) {
       Locale locale = getLocale(request, null);
-      Logger.info(locale.getLanguage());
+      Logger.info("Vocab language : {}",locale.getLanguage());
       return redirect(routes.Application.getVocabPage(version, locale.getLanguage()).url());
     } else {
       Logger.info(routes.Application.getVocabData(version, null).url());
@@ -218,6 +218,7 @@ public class Application extends Controller {
     TemplateLoader loader = layoutProvider.getTemplateLoader();
     loader.setPrefix(getDeployUrl(req));
     try {
+      Logger.error("Request not acceptable : {} {} ",req.method(), req.uri().toString());
       return status(406, loader.sourceAt("/en/406.html").content()).as("text/html");
     } catch (IOException e) {
       Logger.error(e.toString());

@@ -14,22 +14,24 @@
   <appender name="FILE" class="FileAppender">
     <file>${application.home:-.}/logs/application.log</file>
     <encoder class="PatternLayoutEncoder">
-      <pattern>%date [%level] from %logger in %thread - %message%n%xException</pattern>
+      <pattern>%d{HH:mm:ss.SSS} %level %C:%L [%t] - %m%n</pattern>
     </encoder>
   </appender>
 
   <appender name="STDOUT" class="ConsoleAppender">
     <encoder class="PatternLayoutEncoder">
-      <pattern>%highlight(%-5level) %logger{15} - %message%n%xException{10}</pattern>
+      <pattern>%d{HH:mm:ss.SSS} %level %C:%L [%t] - %m%n</pattern>
     </encoder>
   </appender>
 
   <appender name="ASYNCFILE" class="AsyncAppender">
+    <includeCallerData>true</includeCallerData>
     <appender-ref ref="FILE"/>
   </appender>
 
   <appender name="ASYNCSTDOUT" class="AsyncAppender">
     <!-- increases the default queue size -->
+    <includeCallerData>true</includeCallerData>
     <queueSize>512</queueSize>
     <!-- don't discard messages -->
     <discardingThreshold>0</discardingThreshold>
