@@ -14,6 +14,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
 import org.apache.commons.lang3.StringEscapeUtils;
+import org.apache.commons.lang3.StringUtils;
 import play.Logger.ALogger;
 import play.api.Configuration;
 import play.Logger;
@@ -229,8 +230,11 @@ public class Application extends Controller {
     OutputStream result = new ByteArrayOutputStream();
     model.write(result, mimeTypeParserMap.getOrDefault(mimeType, defaults.get("parser"))
         .toString());
-    return ok(result.toString()).as(
-        mimeType.equals("*/*") ? defaults.get("mime").toString() : mimeType);
+    String contentTypeValue = mimeType.equals("*/*") ? defaults.get("mime").toString() : mimeType;
+    if(StringUtils.isNotEmpty(contentTypeValue) )
+      return ok(result.toString()).as(contentTypeValue + ";charset=utf-8");
+    else
+       return ok(result.toString());
   }
 
   private Result getPage(Model model, String templateFile, String language, HashMap<String, String> parameters,Http.Request req)
