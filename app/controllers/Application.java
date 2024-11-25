@@ -13,6 +13,10 @@ import com.hp.hpl.jena.rdf.model.ModelFactory;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.Map.Entry;
+import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
 import play.Logger.ALogger;
@@ -162,9 +166,25 @@ public class Application extends Controller {
     if (rightsStatement.isEmpty()) {
       return notFoundPage(req);
     }
+    HashMap<String, String> parameters = getParameters(req, id);
+    String validationResult = validateParameters(parameters);
+    if(validationResult != null)
+      return status(400,validationResult);
     return getPage(rightsStatement, "/en/statement.hbs", locale.getLanguage(),
-        getParameters(req, id), req).withHeaders("Content-Language", locale.getLanguage(),"Link", "<".concat(routes.Application.getStatementPage(id, version, null)
+        parameters, req).withHeaders("Content-Language", locale.getLanguage(),"Link", "<".concat(routes.Application.getStatementPage(id, version, null)
         .url()).concat(">; rel=derivedfrom"));
+  }
+
+  private String validateParameters(HashMap<String, String> parameters) {
+    for(Entry e: parameters.entrySet()) {
+      if ("relatedURL".equals(e.getKey()) && !isValidRelatedURL(e.getValue().toString())) {
+        return "Unauthorised use of the relatedURL parameter";
+      }
+      if ("date".equals(e.getKey()) && !isValidDate(e.getValue().toString())) {
+         return "Wrong format for the date parameter";
+      }
+    }
+    return null;
   }
 
   public Result getCollection(String id, String version,Http.Request req) {
@@ -386,11 +406,37 @@ public class Application extends Controller {
       for (String validParameter : validParameters.split(" ")) {
         String suppliedParameter = request.getQueryString(validParameter);
         if (suppliedParameter != null) {
-          parameters.put(validParameter, StringEscapeUtils.escapeHtml4(request.getQueryString(validParameter)));
+            parameters.put(validParameter, StringEscapeUtils.escapeHtml4(request.getQueryString(validParameter)));
         }
       }
     }
     return parameters;
+  }
+
+  /**
+   * parses a date without an offset, such as '2011-12-03'
+   * @param value
+   * @return
+   */
+  private boolean isValidDate(String value) {
+    DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE;
+    try{
+      formatter.parse(value);
+      return true;
+    } catch (DateTimeParseException e){
+      return false;
+    }
+  }
+
+  private boolean isValidRelatedURL(String value) {
+    List<String> blackListedURLPatterns = configuration.underlying().getStringList("blacklist.relatedURL");
+    List<Pattern> patternList =  new ArrayList<>();
+    for(String s : blackListedURLPatterns )
+    {
+      Pattern urlPattern  = Pattern.compile(s);
+      patternList.add(urlPattern);
+    }
+    return ! patternList.stream().anyMatch(p->  p.matcher(value).matches());
   }
 
   private String getDeployUrl(Http.Request req) {
